@@ -4,17 +4,47 @@ from burp import IHttpListener
 from burp import IInterceptedProxyMessage
 from burp import IMessageEditorController
 from burp import IContextMenuInvocation
+from javax.swing import JLabel, JTextField, JOptionPane, JTabbedPane, JPanel, JButton, JMenuItem, JTable, JScrollPane, JCheckBox, BorderFactory, Box
+from javax.swing.border import EmptyBorder
+from java.awt import GridBagLayout, Dimension, GridBagConstraints, Color, FlowLayout, BorderLayout, Insets
 from java.net import URL
-from java.awt import Dimension, Component, GridLayout, GridBagLayout, BorderLayout, FlowLayout
+# from java.awt import Dimension, Color, Component, GridLayout, GridBagLayout, BorderLayout, FlowLayout, GridBagConstraints
 from javax import swing
 from javax.swing.table import AbstractTableModel, DefaultTableModel
-from javax.swing import JMenuItem, JTable, JScrollPane, JCheckBox
+from javax.swing.event import TableModelEvent, TableModelListener
 from StringIO import StringIO
 import re
 import threading
 import random
 from java.lang import Runnable
 from java.util import ArrayList
+
+
+class MyTableModelListener(TableModelListener):
+    def __init__(self, table, burp, _type):
+        self.table = table
+        self.burp = burp
+        self._type = _type
+
+    def tableChanged(self, e):
+        firstRow = e.getFirstRow()
+        lastRow = e.getLastRow()
+        index = e.getColumn()
+        # print(str(self.burp._dictPayloads))
+        if self._type == 1:
+            # self.burp.appendToResults(str(self.burp._dictPayloads))
+            self.burp._dictPayloads = {x[0]:x[1] for x in self.burp._tableModelPayloads.getDataVector()}
+            # self.burp.appendToResults(str(self.burp._dictPayloads))
+        elif self._type == 2:
+            # self.burp.appendToResults(str(self.burp._dictHeaders))
+            self.burp._dictHeaders = {x[0]:x[1] for x in self.burp._tableModelHeaders.getDataVector()}
+            # self.burp.appendToResults(str(self.burp._dictHeaders))
+        elif selfg._type == 3:
+            # self.burp.appendToResults(str(self.burp._dictParams))
+            self.burp._dictParams = {x[0]:x[1] for x in self.burp._tableModelParams.getDataVector()}
+            # self.burp.appendToResults(str(self.burp._dictParams))
+        # print(str(self.burp._dictPayloads))
+#         self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['1','1'])
 
 
 class PyRunnable(Runnable):
@@ -37,6 +67,22 @@ class PyRunnable(Runnable):
 
 
 class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController, AbstractTableModel, IContextMenuInvocation):
+    name = "Blind XSS_"
+    _jTabbedPane = JTabbedPane()
+    _jPanel = JPanel()
+    _jAboutPanel = JPanel()
+    _jPanelConstraints = GridBagConstraints()
+    _jLabelParameters = None
+    _jTextFieldParameters = None
+    _jLabelTechniques = None
+    _jTextFieldTechniques = None
+    _jLabelFuzzFactor = None
+    _jTextFieldFuzzFactor = None
+    _jLabelAdditionalCmdLine = None
+    _jTextFieldAdditionalCmdLine = None
+    _jButtonSetCommandLine = None
+    _jLabelAbout = None
+
     #
     # implement IBurpExtender
     #
@@ -46,7 +92,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         # obtain an extension helpers object
         self._helpers = callbacks.getHelpers()
         # set our extension name
-        self._callbacks.setExtensionName("Blind XSS")
+        self._callbacks.setExtensionName(self.name)
         # lists of hosts with querys
 
         self._dictPayloads = {}
@@ -57,10 +103,50 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
         self.status_flag = False
         self.table_flag = 0
-        self.start_button_text = 'Start process'
-        self.stop_button_text = 'Stop process'
+        self.start_button_text = 'Run proxy'
+        self._layout = GridBagLayout()
+        self._jPanel.setLayout(self._layout)
 
-        # build UI
+        self._jPanel.setBounds(0, 0, 1000, 1000)
+        self._jLabelTechniques = JLabel("Your URL (my.burpcollaborator.net):")
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 0
+        self._jPanelConstraints.gridy = 1
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
+        self._jPanel.add(self._jLabelTechniques, self._jPanelConstraints)
+
+        self._jTextFieldTechniques = JTextField("", 30)
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 2
+        self._jPanelConstraints.gridy = 1
+        self._jPanelConstraints.gridwidth = 4
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
+        self._jPanel.add(self._jTextFieldTechniques, self._jPanelConstraints)
+
+        self._jLabelTechniques = JLabel("Press to start:")
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.anchor = GridBagConstraints.WEST
+        self._jPanelConstraints.gridx = 0
+        self._jPanelConstraints.gridy = 0
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
+        self._jPanel.add(self._jLabelTechniques, self._jPanelConstraints)
+
+        self.submitSearchButton = swing.JButton(self.start_button_text, actionPerformed=self.active_flag)
+        self.submitSearchButton.setBackground(Color.WHITE)
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 2
+        self._jPanelConstraints.gridy = 0
+        self._jPanelConstraints.gridwidth = 4
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
+        self._jPanel.add(self.submitSearchButton, self._jPanelConstraints)
+
+
         self._tableModelPayloads = DefaultTableModel() 
         self._tableModelPayloads.addColumn("Payload")
         self._tableModelPayloads.addColumn("Using")
@@ -73,103 +159,139 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._tableModelParams.addColumn("Parameter")
         self._tableModelParams.addColumn("Value")
 
-        boxVertical = swing.Box.createVerticalBox()
 
-        boxHorizontal = swing.Box.createHorizontalBox()
-        label = swing.JLabel("Data")
-        boxHorizontal.add(swing.JLabel("Data"))
-        boxVertical.add(boxHorizontal)
-
-        boxHorizontal = swing.Box.createHorizontalBox()
         self._table = JTable(self._tableModelPayloads)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
+        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 1))
         self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMaximumSize(Dimension(400,400))
-        boxHorizontal.add(self._scrolltable)
+        self._scrolltable.setMinimumSize(Dimension(300, 200))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 0
+        self._jPanelConstraints.gridy = 2
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 0, 10)
+        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
 
         self._table = JTable(self._tableModelHeaders)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
+        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 2))
         self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMaximumSize(Dimension(400,400))
-        boxHorizontal.add(self._scrolltable)
+        self._scrolltable.setMinimumSize(Dimension(300, 200))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 2
+        self._jPanelConstraints.gridy = 2
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 0, 10)
+        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
 
         self._table = JTable(self._tableModelParams)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
+        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 3))
         self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMaximumSize(Dimension(400,400))
-        boxHorizontal.add(self._scrolltable)
-
-        boxVertical.add(boxHorizontal)
-
-        boxHorizontal = swing.Box.createHorizontalBox()
-        boxHorizontal.add(swing.JLabel("Enter Payload/Header/Parameter: (For payload use $HEADER$/$PARAM$)"))
-        boxVertical.add(boxHorizontal)
-        boxHorizontal = swing.Box.createHorizontalBox()
-        self._paramField = swing.JTextField('')
-        self._paramField.setMaximumSize(Dimension(500, 30))
-        boxHorizontal.add(self._paramField)
-        boxVertical.add(boxHorizontal)
-
-        boxHorizontal = swing.Box.createHorizontalBox()
-        boxHorizontal.add(swing.JLabel("Enter Value (Example: burpcollaborator.net)"))
-        boxVertical.add(boxHorizontal)
-        boxHorizontal = swing.Box.createHorizontalBox()
-        self._valueField = swing.JTextField('')
-        self._valueField.setMaximumSize(Dimension(500, 30))
-        boxHorizontal.add(self._valueField)
-        boxVertical.add(boxHorizontal)
-
-        boxHorizontal = swing.Box.createHorizontalBox()
-        self._checkBoxPayload = JCheckBox('Payload', True, actionPerformed = self.onCheck)
-        boxHorizontal.add(self._checkBoxPayload)
-        self._checkBoxHeader = JCheckBox('Header', actionPerformed = self.onCheck)
-        boxHorizontal.add(self._checkBoxHeader)
-        self._checkBoxParam = JCheckBox('Param', actionPerformed = self.onCheck)
-        boxHorizontal.add(self._checkBoxParam)
-        boxVertical.add(boxHorizontal)
+        self._scrolltable.setMinimumSize(Dimension(300, 200))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 4
+        self._jPanelConstraints.gridy = 2
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(0, 0, 0, 0)
+        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
 
 
-        boxHorizontal = swing.Box.createHorizontalBox()
-        submitQueryButton = swing.JButton('Create Row',actionPerformed=self.runQuery)
-        boxHorizontal.add(submitQueryButton)
+        addPayloadButton = swing.JButton('Add',actionPerformed=self.addToPayload)
+        addPayloadButton.setBackground(Color.WHITE)
+        addPayloadButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
+        self._jPanelConstraints.gridx = 1
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 10)
+        self._jPanel.add(addPayloadButton, self._jPanelConstraints)
 
-        clearQueryButton = swing.JButton('Delete Row',actionPerformed=self.clearQueue)
-        boxHorizontal.add(clearQueryButton)
-        boxVertical.add(boxHorizontal)
+        deletePayloadButton = swing.JButton('Delete',actionPerformed=self.deleteToPayload)
+        deletePayloadButton.setBackground(Color.WHITE)
+        deletePayloadButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 0
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
+        self._jPanel.add(deletePayloadButton, self._jPanelConstraints)
 
+        addHeaderButton = swing.JButton('Add',actionPerformed=self.addToHeader)
+        addHeaderButton.setBackground(Color.WHITE)
+        addHeaderButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
+        self._jPanelConstraints.gridx = 3
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 10)
+        self._jPanel.add(addHeaderButton, self._jPanelConstraints)
 
-        boxHorizontal = swing.Box.createHorizontalBox()
-        addPayloadButton = swing.JButton('Update Tables', actionPerformed=self.updateTables)
-        boxHorizontal.add(addPayloadButton)
-        boxVertical.add(boxHorizontal)
+        deleteHeaderButton = swing.JButton('Delete',actionPerformed=self.deleteToHeader)
+        deleteHeaderButton.setBackground(Color.WHITE)
+        deleteHeaderButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 2
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
+        self._jPanel.add(deleteHeaderButton, self._jPanelConstraints)
 
-        boxHorizontal = swing.Box.createHorizontalBox()
-        boxHorizontal.add(swing.JLabel("Output"))
-        boxVertical.add(boxHorizontal)
+        addParamsButton = swing.JButton('Add',actionPerformed=self.addToParams)
+        addParamsButton.setBackground(Color.WHITE)
+        addParamsButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
+        self._jPanelConstraints.gridx = 5
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
+        self._jPanel.add(addParamsButton, self._jPanelConstraints)
 
-        boxHorizontal = swing.Box.createHorizontalBox()
+        deleteParamsButton = swing.JButton('Delete',actionPerformed=self.deleteToParams)
+        deleteParamsButton.setBackground(Color.WHITE)
+        deleteParamsButton.setPreferredSize(Dimension(150, 40))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 4
+        self._jPanelConstraints.gridy = 3
+        self._jPanelConstraints.gridwidth = 1
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
+        self._jPanel.add(deleteParamsButton, self._jPanelConstraints)
+        
+
         self._resultsTextArea = swing.JTextArea()
         resultsOutput = swing.JScrollPane(self._resultsTextArea)
-        resultsOutput.setMaximumSize(Dimension(800,200))
-        boxHorizontal.add(resultsOutput)
-        boxVertical.add(boxHorizontal)
+        resultsOutput.setMinimumSize(Dimension(800,200))
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = 0
+        self._jPanelConstraints.gridy = 4
+        self._jPanelConstraints.gridwidth = 6
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(10, 0, 0, 0)
+        self._jPanel.add(resultsOutput, self._jPanelConstraints)
 
-        boxHorizontal = swing.Box.createHorizontalBox()
-        submitSearchButton = swing.JButton(self.start_button_text, actionPerformed=self.active_flag)
-        boxHorizontal.add(submitSearchButton)
-        clearSearchButton = swing.JButton(self.stop_button_text, actionPerformed=self.active_flag)
-        boxHorizontal.add(clearSearchButton)
-        clearSearchButton = swing.JButton('Clear Search Output',actionPerformed=self.clearOutput)
-        boxHorizontal.add(clearSearchButton)
-        boxVertical.add(boxHorizontal)
+        self.clearSearchButton = swing.JButton('Clear Search Output',actionPerformed=self.clearOutput)
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
+        self._jPanelConstraints.gridx = 2
+        self._jPanelConstraints.gridy = 5
+        self._jPanelConstraints.gridwidth = 2
+        self._jPanelConstraints.gridheight = 1
+        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
+        self._jPanel.add(self.clearSearchButton, self._jPanelConstraints)
 
-        self._jScrollPanel = JScrollPane(boxVertical)
-        self._jScrollPanel.setMaximumSize(Dimension(1000,2000))
-        self._jScrollPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS)
-
-
-        # add the custom tab to Burp's UI
-        self._callbacks.customizeUiComponent(self._jScrollPanel)
+        self._callbacks.customizeUiComponent(self._jPanel)
 
         self._callbacks.addSuiteTab(self)
         # register ourselves as an HTTP listener
@@ -178,26 +300,49 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         return
 
 
-    def onCheck(self, event):
-        if self._checkBoxPayload.isSelected() and self.table_flag != 0:
-            self.table_flag = 0
-            self._checkBoxHeader.setSelected(False)
-            self._checkBoxParam.setSelected(False)
+    # def onCheck(self, event):
+    #     if self._checkBoxPayload.isSelected() and self.table_flag != 0:
+    #         self.table_flag = 0
+    #         self._checkBoxHeader.setSelected(False)
+    #         self._checkBoxParam.setSelected(False)
 
 
-        if self._checkBoxHeader.isSelected() and self.table_flag != 1:
-            self.table_flag = 1
-            self._checkBoxParam.setSelected(False)
-            self._checkBoxPayload.setSelected(False)
+    #     if self._checkBoxHeader.isSelected() and self.table_flag != 1:
+    #         self.table_flag = 1
+    #         self._checkBoxParam.setSelected(False)
+    #         self._checkBoxPayload.setSelected(False)
 
 
-        if self._checkBoxParam.isSelected() and self.table_flag != 2:
-            self.table_flag = 2
-            self._checkBoxHeader.setSelected(False)
-            self._checkBoxPayload.setSelected(False)
+    #     if self._checkBoxParam.isSelected() and self.table_flag != 2:
+    #         self.table_flag = 2
+    #         self._checkBoxHeader.setSelected(False)
+    #         self._checkBoxPayload.setSelected(False)
 
 
     # run Query for Add to Queue Button
+    def addToPayload(self, button):
+        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', ''])
+        # self.appendToResults(str(self._tableModelPayloads.getDataVector()))
+
+    def addToHeader(self, button):
+        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['', ''])
+
+    def addToParams(self, button):
+        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', ''])
+
+    def deleteToPayload(self, button):
+        self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
+        # self.appendToResults(str(self._tableModelPayloads.getDataVector()))
+
+    def deleteToHeader(self, button):
+        self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
+        # self.appendToResults(str(self._tableModelHeaders.getDataVector()))
+
+    def deleteToParams(self, button):
+        self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
+        # self.appendToResults(str(self._tableModelParams.getDataVector()))
+
+
     def runQuery(self, button):
         table_number = self.table_flag
         par = []
@@ -273,7 +418,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
 
     def active_flag(self, button):
-        if self.start_button_text == button.getSource().text and not self.status_flag:
+        if not self.status_flag:
             for idx, key in enumerate(self._dictPayloads):
                 if "$HEADER$" in key and not self._dictPayloads_headers.get(key) and self._dictPayloads[key] == '1':
                     self._dictPayloads_headers[key] = self._dictPayloads[key]
@@ -283,11 +428,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
                     self._dictPayloads_params[key] = self._dictPayloads[key]
 
             self.status_flag = True
-            self.appendToResults("Proxy start...\n")
+            self.submitSearchButton.setBackground(Color.GRAY)
+            self.appendToResults("\nProxy start...\n")
 
-        elif self.stop_button_text == button.getSource().text and self.status_flag:
+        elif self.status_flag:
             self.status_flag = False
-            self.appendToResults("Proxy stop...\n")
+            self.submitSearchButton.setBackground(Color.WHITE)
+            self.appendToResults("\nProxy stop...\n")
 
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
@@ -344,8 +491,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
 
     def getTabCaption(self):
-        return "Blind XSS"
+        return self.name
 
 
     def getUiComponent(self):
-        return self._jScrollPanel
+        return self._jPanel
