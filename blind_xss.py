@@ -32,19 +32,11 @@ class MyTableModelListener(TableModelListener):
         index = e.getColumn()
         # print(str(self.burp._dictPayloads))
         if self._type == 1:
-            # self.burp.appendToResults(str(self.burp._dictPayloads))
             self.burp._dictPayloads = {x[0]:x[1] for x in self.burp._tableModelPayloads.getDataVector()}
-            # self.burp.appendToResults(str(self.burp._dictPayloads))
         elif self._type == 2:
-            # self.burp.appendToResults(str(self.burp._dictHeaders))
             self.burp._dictHeaders = {x[0]:x[1] for x in self.burp._tableModelHeaders.getDataVector()}
-            # self.burp.appendToResults(str(self.burp._dictHeaders))
-        elif selfg._type == 3:
-            # self.burp.appendToResults(str(self.burp._dictParams))
+        elif self._type == 3:
             self.burp._dictParams = {x[0]:x[1] for x in self.burp._tableModelParams.getDataVector()}
-            # self.burp.appendToResults(str(self.burp._dictParams))
-        # print(str(self.burp._dictPayloads))
-#         self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['1','1'])
 
 
 class PyRunnable(Runnable):
@@ -75,7 +67,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     _jLabelParameters = None
     _jTextFieldParameters = None
     _jLabelTechniques = None
-    _jTextFieldTechniques = None
+    _jTextFieldURL = None
     _jLabelFuzzFactor = None
     _jTextFieldFuzzFactor = None
     _jLabelAdditionalCmdLine = None
@@ -117,14 +109,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
         self._jPanel.add(self._jLabelTechniques, self._jPanelConstraints)
 
-        self._jTextFieldTechniques = JTextField("", 30)
+        self._jTextFieldURL = JTextField("", 30)
         self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
         self._jPanelConstraints.gridx = 2
         self._jPanelConstraints.gridy = 1
         self._jPanelConstraints.gridwidth = 4
         self._jPanelConstraints.gridheight = 1
         self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
-        self._jPanel.add(self._jTextFieldTechniques, self._jPanelConstraints)
+        self._jPanel.add(self._jTextFieldURL, self._jPanelConstraints)
 
         self._jLabelTechniques = JLabel("Press to start:")
         self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
@@ -153,11 +145,11 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
         self._tableModelHeaders = DefaultTableModel() 
         self._tableModelHeaders.addColumn("Header")
-        self._tableModelHeaders.addColumn("Value")
+        self._tableModelHeaders.addColumn("Using")
 
         self._tableModelParams = DefaultTableModel() 
         self._tableModelParams.addColumn("Parameter")
-        self._tableModelParams.addColumn("Value")
+        self._tableModelParams.addColumn("Using")
 
 
         self._table = JTable(self._tableModelPayloads)
@@ -343,42 +335,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         # self.appendToResults(str(self._tableModelParams.getDataVector()))
 
 
-    def runQuery(self, button):
-        table_number = self.table_flag
-        par = []
-        val = []
-        if self._paramField.text == "" or self._valueField.text == "":
-            return
-        else:
-            paramString = self._paramField.text
-            for word in paramString.split(','):
-                word = word.strip() #delete spaces
-                word = word.lstrip() #delete spaces
-                if word != "":
-                    par.append(word)
-            valueString = self._valueField.text
-            for word in valueString.split(','):
-                word = word.strip() #delete spaces
-                word = word.lstrip() #delete spaces
-                if word != "":
-                    val.append(word)
-
-        if table_number == 0:
-            self._dictPayloads.update(dict(zip(par, ['1'] * len(par))))
-            for idx, key in enumerate(dict(zip(par, ['1'] * len(par)))):
-                self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [key, '1'])
-        elif table_number == 1:
-            self._dictHeaders.update(dict(zip(par, val)))
-            for idx, key in enumerate(dict(zip(par, val))):
-                self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), [key, self._dictHeaders[key]])
-        elif table_number == 2:
-            self._dictParams.update(dict(zip(par, val)))
-            for idx, key in enumerate(dict(zip(par, val))):
-                self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), [key, self._dictParams[key]])
-        self._paramField.setText("")
-        self._valueField.setText("")
-
-
     # Clear Queue Function
     def clearQueue(self, button):
         table_number = self.table_flag
@@ -419,64 +375,70 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def active_flag(self, button):
         if not self.status_flag:
-            for idx, key in enumerate(self._dictPayloads):
-                if "$HEADER$" in key and not self._dictPayloads_headers.get(key) and self._dictPayloads[key] == '1':
-                    self._dictPayloads_headers[key] = self._dictPayloads[key]
+            for idx, key in enumerate(self._dictHeaders):
+                if self._dictHeaders[key] == '1':
+                    self._dictPayloads_headers[key] = self._dictHeaders[key]
 
-            for idx, key in enumerate(self._dictPayloads):
-                if "$PARAM$" in key and not self._dictPayloads_params.get(key) and self._dictPayloads[key] == '1':
-                    self._dictPayloads_params[key] = self._dictPayloads[key]
+            for idx, key in enumerate(self._dictParams):
+                if self._dictParams[key] == '1':
+                    self._dictPayloads_params[key] = self._dictParams[key]
 
             self.status_flag = True
             self.submitSearchButton.setBackground(Color.GRAY)
-            self.appendToResults("\nProxy start...\n")
+            self.appendToResults("Proxy start...")
 
         elif self.status_flag:
             self.status_flag = False
             self.submitSearchButton.setBackground(Color.WHITE)
-            self.appendToResults("\nProxy stop...\n")
+            self.appendToResults("Proxy stop...")
 
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        if not self.status_flag:
-            return
-        # only process requests
-        if not messageIsRequest:
-            return
+        try:
+            if not self.status_flag:
+                return
+            # only process requests
+            if not messageIsRequest:
+                return
 
-        requestString = messageInfo.getRequest().tostring()
+            requestString = messageInfo.getRequest().tostring()
 
-        listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
-        dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
+            listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
+            dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
+            # self.appendToResults(str(self._dictHeaders))
 
-        for index, key in enumerate(self._dictHeaders):
-            if key.lower() in dictRealHeaders.keys():
-                if len(self._dictPayloads_headers.keys()) == 0:
-                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), self._dictHeaders.get(key), 1)
+            for index, key in enumerate(self._dictPayloads_headers):
+                if key.lower() in dictRealHeaders.keys():
+                    if len(self._dictPayloads.keys()) == 0:
+                        pass
+                    else:
+                        payload = random.choice(self._dictPayloads.keys())
+                        # payload = payload.replace("$HEADER$", self._jTextFieldURL.text, 1)
+                        payload = payload.replace("$URL$", self._jTextFieldURL.text, 1)
+                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
                 else:
-                    payload = random.choice(self._dictPayloads_headers.keys())
-                    payload = payload.replace("$HEADER$", self._dictHeaders.get(key), 1)
-                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
-            else:
-                pass
+                    pass
 
-        listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
-        dictRealParams = {x[0].lower():x[1] for x in listParam}
-        url = requestString.split(" HTTP/1.")
-        for index, key in enumerate(self._dictParams):
-            if key.lower() in dictRealParams.keys():
-                if len(self._dictPayloads_params.keys()) == 0:
-                    url[0] = url[0].replace(dictRealParams.get(key.lower()), self._dictParams.get(key), 1)
+            listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
+            dictRealParams = {x[0].lower():x[1] for x in listParam}
+            url = requestString.split(" HTTP/1.")
+            for index, key in enumerate(self._dictPayloads_params):
+                if key.lower() in dictRealParams.keys():
+                    if len(self._dictPayloads.keys()) == 0:
+                        pass
+                    else:
+                        payload = random.choice(self._dictPayloads.keys())
+                        # payload = payload.replace("$PARAM$", self._jTextFieldURL.text, 1)
+                        payload = payload.replace("$URL$", self._jTextFieldURL.text, 1)
+                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
                 else:
-                    payload = random.choice(self._dictPayloads_params.keys())
-                    payload = payload.replace("$PARAM$", self._dictParams.get(key), 1)
-                    url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
-            else:
-                pass
-        requestString = "{} HTTP/1.{}".format(url[0], url[1])
+                    pass
+            requestString = "{} HTTP/1.{}".format(url[0], url[1])
 
-        self.appendToResults(requestString.encode())
-        messageInfo.setRequest(requestString.encode())
+            self.appendToResults(requestString.encode())
+            messageInfo.setRequest(requestString.encode())
+        except Exception as msg:
+            self.appendToResults(msg)
 
         
     # Fnction to provide output to GUI
@@ -486,6 +448,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         """
         def appendToResults_run(s):  
             self._resultsTextArea.append(s)
+            self._resultsTextArea.append('\n')
 
         swing.SwingUtilities.invokeLater(PyRunnable(appendToResults_run, s))
 
