@@ -41,7 +41,6 @@ class MyTableModelListener(TableModelListener):
         elif self._type == 3:
             self.burp._dictParams = {x[0]:x[1] for x in self.burp._tableModelParams.getDataVector()}
 
-
 class PyRunnable(Runnable):
     """This class is used to wrap a python callable object into a Java Runnable that is 
        suitable to be passed to various Java methods that perform callbacks.
@@ -92,8 +91,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         # lists of hosts with querys
 
         self._dictPayloads = {}
-        self._dictPayloads_headers = {}
-        self._dictPayloads_params = {}
         self._dictHeaders = {}
         self._dictParams = {}
 
@@ -239,12 +236,30 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def deleteToPayload(self, button):
         self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
+        data = self._tableModelPayloads.getDataVector()
+        try:
+            self._dictPayloads.pop(data[-1][0])
+        except Exception:
+            pass
+        print(str(self._dictPayloads))
 
     def deleteToHeader(self, button):
         self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
+        data = self._tableModelHeaders.getDataVector()
+        try:
+            self._dictHeaders.pop(data[-1][0])
+        except Exception:
+            pass
+        print(str(self._dictHeaders))
 
     def deleteToParams(self, button):
         self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
+        data = self._tableModelParams.getDataVector()
+        try:
+            self._dictParams.pop(data[-1][0])
+        except Exception:
+            pass
+        print(str(self._dictParams))
 
     def clearOutput(self, button):
         self._resultsTextArea.setText("")
@@ -257,14 +272,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def active_flag(self, button):
         if not self.status_flag:
-            for idx, key in enumerate(self._dictHeaders):
-                if self._dictHeaders[key] == '1':
-                    self._dictPayloads_headers[key] = self._dictHeaders[key]
-
-            for idx, key in enumerate(self._dictParams):
-                if self._dictParams[key] == '1':
-                    self._dictPayloads_params[key] = self._dictParams[key]
-
             self.status_flag = True
             self.submitSearchButton.setBackground(Color.GRAY)
             self.appendToResults("Proxy start...")
@@ -307,8 +314,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
             dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
 
-            for index, key in enumerate(self._dictPayloads_headers):
-                if key.lower() in dictRealHeaders.keys():
+            for index, key in enumerate(self._dictHeaders):
+                if key.lower() in dictRealHeaders.keys() and self._dictHeaders[key] == '1':
                     if len(self._dictPayloads.keys()) == 0:
                         pass
                     elif self._overwriteHeader:
@@ -326,8 +333,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
             dictRealParams = {x[0].lower():x[1] for x in listParam}
             url = requestString.split(" HTTP/1.")
-            for index, key in enumerate(self._dictPayloads_params):
-                if key.lower() in dictRealParams.keys():
+            for index, key in enumerate(self._dictParams):
+                if key.lower() in dictRealParams.keys() and self._dictParams[key] == '1':
                     if len(self._dictPayloads.keys()) == 0:
                         pass
                     elif self._overwriteParam:
