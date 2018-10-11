@@ -12,6 +12,7 @@ from java.awt import (GridBagLayout, Dimension, GridBagConstraints,
     Color, FlowLayout, BorderLayout, Insets)
 from java.net import URL
 from javax import swing
+from javax.swing.filechooser import FileNameExtensionFilter
 from javax.swing.table import AbstractTableModel, DefaultTableModel
 from javax.swing.event import TableModelEvent, TableModelListener
 from StringIO import StringIO
@@ -98,14 +99,18 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
         self.status_flag = False
         self.table_flag = 0
-        self.start_button_text = 'Run proxy'
+
+        self.jfc = JFileChooser("./")
+        self.jfc.setDialogTitle("Upload Payloads")
+        self.jfc.setFileFilter(FileNameExtensionFilter("TXT file", ["txt"]))
+
         self._layout = GridBagLayout()
         self._jPanel.setLayout(self._layout)
 
         self._jLabelTechniques = JLabel("Press to start:")
         self.createAnyView(self._jLabelTechniques, 0, 0, 3, 1, Insets(0, 0, 10, 0))
 
-        self.submitSearchButton = swing.JButton(self.start_button_text, actionPerformed=self.active_flag)
+        self.submitSearchButton = swing.JButton('Run proxy', actionPerformed=self.active_flag)
         self.submitSearchButton.setBackground(Color.WHITE)
         self.createAnyView(self.submitSearchButton, 3, 0, 6, 1, Insets(0, 0, 10, 0))
 
@@ -227,8 +232,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', ''])
 
     def uploadToPayload(self, button):
-        self.jfc = JFileChooser("./")
-        self.jfc.setDialogTitle("Upload Payloads")
         self._returnFileChooser = self.jfc.showDialog(None, "Open")
         if (self._returnFileChooser == JFileChooser.APPROVE_OPTION):
             selectedFile = self.jfc.getSelectedFile()
