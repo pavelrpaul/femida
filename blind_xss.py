@@ -16,11 +16,13 @@ from javax.swing.filechooser import FileNameExtensionFilter
 from javax.swing.table import AbstractTableModel, DefaultTableModel
 from javax.swing.event import TableModelEvent, TableModelListener
 from StringIO import StringIO
+import os
 import re
 import threading
 import random
 from java.lang import Runnable
 from java.util import ArrayList
+import config
 
 
 class MyTableModelListener(TableModelListener):
@@ -30,16 +32,16 @@ class MyTableModelListener(TableModelListener):
         self._type = _type
 
     def tableChanged(self, e):
-        firstRow = e.getFirstRow()
-        lastRow = e.getLastRow()
-        index = e.getColumn()
-        # print(str(self.burp._dictPayloads))
         if self._type == 1:
             self.burp._dictPayloads = {x[0]:x[1] for x in self.burp._tableModelPayloads.getDataVector()}
+            self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
         elif self._type == 2:
             self.burp._dictHeaders = {x[0]:x[1] for x in self.burp._tableModelHeaders.getDataVector()}
+            self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
         elif self._type == 3:
             self.burp._dictParams = {x[0]:x[1] for x in self.burp._tableModelParams.getDataVector()}
+            self.burp.saveToFile(config.Parameters, self.burp._dictParams)
+
 
 class PyRunnable(Runnable):
     """This class is used to wrap a python callable object into a Java Runnable that is 
@@ -130,26 +132,16 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._tableModelParams.addColumn("Parameter")
         self._tableModelParams.addColumn("Using")
 
-        self._table = JTable(self._tableModelPayloads)
-        self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
-        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 1))
-        self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMinimumSize(Dimension(300, 200))
+
+        self._scrolltable = self.createAnyTable(self._tableModelPayloads, 1, Dimension(300, 200))
         self.createAnyView(self._scrolltable, 0, 2, 3, 1, Insets(0, 0, 0, 10))
 
-        self._table = JTable(self._tableModelHeaders)
-        self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
-        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 2))
-        self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMinimumSize(Dimension(300, 200))
+        self._scrolltable = self.createAnyTable(self._tableModelHeaders, 2, Dimension(300, 200))
         self.createAnyView(self._scrolltable, 3, 2, 3, 1, Insets(0, 0, 0, 10))
 
-        self._table = JTable(self._tableModelParams)
-        self._table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
-        self._table.getModel().addTableModelListener(MyTableModelListener(self._table, self, 3))
-        self._scrolltable = JScrollPane(self._table)
-        self._scrolltable.setMinimumSize(Dimension(300, 200))
+        self._scrolltable = self.createAnyTable(self._tableModelParams, 3, Dimension(300, 200))
         self.createAnyView(self._scrolltable, 6, 2, 3, 1, Insets(0, 0, 0, 0))
+
 
         deletePayloadButton = swing.JButton('Delete',actionPerformed=self.deleteToPayload)
         deletePayloadButton.setBackground(Color.WHITE)
@@ -204,6 +196,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         return
 
 
+    def createAnyTable(self, table_model, table_number, min_size):
+        _table = JTable(table_model)
+        _table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
+        # _table.getModel().addTableModelListener(MyTableModelListener(_table, self, table_number))
+        _scrolltable = JScrollPane(_table)
+        _scrolltable.setMinimumSize(min_size)
+        return _scrolltable
+
     def createAnyView(self, _component, gridx, gridy, gridwidth, gridheight, insets):
         self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
         self._jPanelConstraints.gridx = gridx
@@ -213,10 +213,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._jPanelConstraints.insets = insets
         self._jPanel.add(_component, self._jPanelConstraints)
 
+
     def starterPack(self):
-        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [r'"><script src=${URL}$></script>', '1'])
-        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['User-agent', '1'])
-        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['test', '1'])
+        self.addFromFile(config.Payloads, self._tableModelPayloads)
+        self.addFromFile(config.Headers, self._tableModelHeaders)
+        self.addFromFile(config.Parameters, self._tableModelParams)
+        self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, 1))
+        self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, 2))
+        self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, 3))
 
 
     def addToPayload(self, button):
@@ -232,7 +236,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._returnFileChooser = self.jfc.showDialog(None, "Open")
         if (self._returnFileChooser == JFileChooser.APPROVE_OPTION):
             selectedFile = self.jfc.getSelectedFile()
-            self.fileUpload(selectedFile)
+            self.fileUpload(selectedFile, self._tableModelPayloads)
 
     def deleteToPayload(self, button):
         self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
@@ -241,7 +245,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._dictPayloads.pop(data[-1][0])
         except Exception:
             pass
-        print(str(self._dictPayloads))
 
     def deleteToHeader(self, button):
         self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
@@ -250,7 +253,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._dictHeaders.pop(data[-1][0])
         except Exception:
             pass
-        print(str(self._dictHeaders))
 
     def deleteToParams(self, button):
         self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
@@ -259,15 +261,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._dictParams.pop(data[-1][0])
         except Exception:
             pass
-        print(str(self._dictParams))
 
     def clearOutput(self, button):
         self._resultsTextArea.setText("")
 
-    def fileUpload(self, path):
+    def fileUpload(self, path, table):
         with open(str(path), "r") as f:
             for line in f:
-                self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), [str(line), '1'])
+                table.insertRow(table.getRowCount(), [str(line), '1'])
 
 
     def active_flag(self, button):
@@ -366,6 +367,33 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._resultsTextArea.append('\n')
 
         swing.SwingUtilities.invokeLater(PyRunnable(appendToResults_run, s))
+
+
+    def addFromFile(self, file, table):
+        """Appends results to the resultsTextArea in a thread safe mannor. Results will be
+           appended in the order that this function is called.
+        """
+        def addFromFile_run(file, table):
+            if os.path.exists(file):
+                with open(file, 'r') as f:
+                    for row in f.readlines():
+                        table.insertRow(table.getRowCount(), [str(row), '1'])
+
+        swing.SwingUtilities.invokeLater(PyRunnable(addFromFile_run, file, table))
+
+
+    def saveToFile(self, file, data):
+        """Appends results to the resultsTextArea in a thread safe mannor. Results will be
+           appended in the order that this function is called.
+        """
+        def saveToFile_run(file, data):
+            with open(file, 'w') as f:
+                for i, k in enumerate(data):
+                    f.write("{}\n".format(k))
+                f.seek(-1, os.SEEK_END)
+                f.truncate()
+
+        swing.SwingUtilities.invokeLater(PyRunnable(saveToFile_run, file, data))
 
 
     def getTabCaption(self):
