@@ -1,4 +1,4 @@
-from burp import IBurpExtender
+from burp import IBurpExtender, IScannerCheck
 from burp import ITab
 from burp import IHttpListener
 from burp import IInterceptedProxyMessage
@@ -26,21 +26,73 @@ import config
 
 
 class MyTableModelListener(TableModelListener):
-    def __init__(self, table, burp, _type):
+    def __init__(self, table, burp, _tableNum):
         self.table = table
         self.burp = burp
-        self._type = _type
+        self._tableNum = _tableNum
 
     def tableChanged(self, e):
-        if self._type == 1:
-            self.burp._dictPayloads = {x[0]:x[1] for x in self.burp._tableModelPayloads.getDataVector()}
-            self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
-        elif self._type == 2:
-            self.burp._dictHeaders = {x[0]:x[1] for x in self.burp._tableModelHeaders.getDataVector()}
-            self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
-        elif self._type == 3:
-            self.burp._dictParams = {x[0]:x[1] for x in self.burp._tableModelParams.getDataVector()}
-            self.burp.saveToFile(config.Parameters, self.burp._dictParams)
+        # print(e.getColumn())
+        if self._tableNum == 1:
+            if e.getType() == 1:
+                data = self.burp._tableModelPayloads.getDataVector()
+                new_line = data[-1][1]
+                if new_line[-1] == '\n':
+                    new_line = new_line[:-1]
+                self.burp._dictPayloads[data[-1][0]] = new_line
+            if e.getType() == 0:
+                self.burp._dictPayloads = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelPayloads.getDataVector()}
+                try:
+                    self.burp._dictPayloads.pop('')
+                except Exception:
+                    pass
+                self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
+            if e.getType() == -1:
+                return
+
+            try:
+                self.burp._dictPayloads.pop('')
+            except Exception:
+                pass
+            # self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
+        elif self._tableNum == 2:
+            if e.getType() == 1:
+                data = self.burp._tableModelHeaders.getDataVector()
+                self.burp._dictHeaders[data[-1][0]] = data[-1][1]
+            if e.getType() == 0:
+                self.burp._dictHeaders = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelHeaders.getDataVector()}
+                try:
+                    self.burp._dictHeaders.pop('')
+                except Exception:
+                    pass
+                self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
+            if e.getType() == -1:
+                return
+
+            try:
+                self.burp._dictHeaders.pop('')
+            except Exception:
+                pass
+            # self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
+        elif self._tableNum == 3:
+            if e.getType() == 1:
+                data = self.burp._tableModelParams.getDataVector()
+                self.burp._dictParams[data[-1][0]] = data[-1][1]
+            if e.getType() == 0:
+                self.burp._dictParams = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelParams.getDataVector()}
+                try:
+                    self.burp._dictParams.pop('')
+                except Exception:
+                    pass
+                self.burp.saveToFile(config.Parameters, self.burp._dictParams)
+            if e.getType() == -1:
+                return
+
+            try:
+                self.burp._dictParams.pop('')
+            except Exception:
+                pass
+            # self.burp.saveToFile(config.Parameters, self.burp._dictParams)
 
 
 class PyRunnable(Runnable):
@@ -61,7 +113,7 @@ class PyRunnable(Runnable):
         self.target(*self.args, **self.kwargs)
 
 
-class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController, AbstractTableModel, IContextMenuInvocation):
+class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController, AbstractTableModel, IContextMenuInvocation, IScannerCheck):
     name = "Blind XSS_"
     _jTabbedPane = JTabbedPane()
     _jPanel = JPanel()
@@ -80,22 +132,43 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     _overwriteHeader = False
     _overwriteParam = False
 
+
+    def doActiveScan(self, baseRequestResponse, insertionPoint):
+        scan_issues = []
+        try:
+            requestString = str(baseRequestResponse.getRequest().tostring())
+            newRequestString = self.prepareRequest(requestString)
+
+            vulnerable, verifyingRequestResponse = self.quickCheck(newRequestString, baseRequestResponse)
+
+        except Exception as msg:
+            print(msg)
+
+        # with open('/Users/pavelrukavishnikov/Documents/ctfDir/blind-xss/base.txt', 'a+') as f:
+        #     f.write("a {}\n".format(str(baseRequestResponse.getRequest().tostring())))
+        #     f.write("b {}\n".format(newRequestString))
+
+        return []
+
+
+    def quickCheck(self, preparedRequest, requestResponse):
+        check = self._callbacks.makeHttpRequest(requestResponse.getHttpService(), preparedRequest)
+        vulner = self._helpers.analyzeResponse(check.getResponse()).getStatusCode() == 200
+        return vulner, check
+
+
     #
     # implement IBurpExtender
     #
     def registerExtenderCallbacks(self, callbacks):
-        # keep a reference to our callbacks object
         self._callbacks = callbacks
-        # obtain an extension helpers object
         self._helpers = callbacks.getHelpers()
-        # set our extension name
         self._callbacks.setExtensionName(self.name)
-        # lists of hosts with querys
+        self._callbacks.registerScannerCheck(self)
 
         self._dictPayloads = {}
         self._dictHeaders = {}
         self._dictParams = {}
-
         self.status_flag = False
         self.table_flag = 0
 
@@ -132,16 +205,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._tableModelParams.addColumn("Parameter")
         self._tableModelParams.addColumn("Using")
 
+        self._payloadTable = self.createAnyTable(self._tableModelPayloads, 1, Dimension(300, 200))
+        self.createAnyView(self._payloadTable, 0, 2, 3, 1, Insets(0, 0, 0, 10))
 
-        self._scrolltable = self.createAnyTable(self._tableModelPayloads, 1, Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 0, 2, 3, 1, Insets(0, 0, 0, 10))
+        self._headerTable = self.createAnyTable(self._tableModelHeaders, 2, Dimension(300, 200))
+        self.createAnyView(self._headerTable, 3, 2, 3, 1, Insets(0, 0, 0, 10))
 
-        self._scrolltable = self.createAnyTable(self._tableModelHeaders, 2, Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 3, 2, 3, 1, Insets(0, 0, 0, 10))
-
-        self._scrolltable = self.createAnyTable(self._tableModelParams, 3, Dimension(300, 200))
-        self.createAnyView(self._scrolltable, 6, 2, 3, 1, Insets(0, 0, 0, 0))
-
+        self._paramTable = self.createAnyTable(self._tableModelParams, 3, Dimension(300, 200))
+        self.createAnyView(self._paramTable, 6, 2, 3, 1, Insets(0, 0, 0, 0))
 
         deletePayloadButton = swing.JButton('Delete',actionPerformed=self.deleteToPayload)
         deletePayloadButton.setBackground(Color.WHITE)
@@ -215,22 +286,22 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
 
     def starterPack(self):
-        self.addFromFile(config.Payloads, self._tableModelPayloads)
-        self.addFromFile(config.Headers, self._tableModelHeaders)
-        self.addFromFile(config.Parameters, self._tableModelParams)
+        self.addFromFileAsync(config.Payloads, self._tableModelPayloads)
+        self.addFromFileAsync(config.Headers, self._tableModelHeaders)
+        self.addFromFileAsync(config.Parameters, self._tableModelParams)
         self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, 1))
         self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, 2))
         self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, 3))
 
 
     def addToPayload(self, button):
-        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', ''])
+        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', '1'])
 
     def addToHeader(self, button):
-        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['', ''])
+        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['', '1'])
 
     def addToParams(self, button):
-        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', ''])
+        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', '1'])
 
     def uploadToPayload(self, button):
         self._returnFileChooser = self.jfc.showDialog(None, "Open")
@@ -239,11 +310,17 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self.fileUpload(selectedFile, self._tableModelPayloads)
 
     def deleteToPayload(self, button):
-        self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
-        data = self._tableModelPayloads.getDataVector()
         try:
+            # print(str(dir(self._tableModelPayloads)))
+            # rows = self._payloadTable.getSelectedRows()
+            # for i in rows:
+            #     self._tableModelPayloads.removeRow(table.getSelectedRow())
+
+            self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
+            data = self._tableModelPayloads.getDataVector()
             self._dictPayloads.pop(data[-1][0])
-        except Exception:
+        except Exception as msg:
+            print(msg)
             pass
 
     def deleteToHeader(self, button):
@@ -276,6 +353,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self.status_flag = True
             self.submitSearchButton.setBackground(Color.GRAY)
             self.appendToResults("Proxy start...")
+            self.appendToResults(str(self._dictPayloads))
 
         elif self.status_flag:
             self.status_flag = False
@@ -302,6 +380,48 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._overwriteParamButton.setBackground(Color.WHITE)
 
 
+    def prepareRequest(self, requestString):
+        listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
+        dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
+
+        for index, key in enumerate(self._dictHeaders):
+            if key.lower() in dictRealHeaders.keys() and self._dictHeaders[key] == '1':
+                if len(self._dictPayloads.keys()) == 0:
+                    pass
+                elif self._overwriteHeader:
+                    payload = random.choice(self._dictPayloads.keys())
+                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
+                elif not self._overwriteHeader:
+                    payload = random.choice(self._dictPayloads.keys())
+                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                    payload = dictRealHeaders.get(key.lower()) + payload
+                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
+            else:
+                pass
+
+        listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
+        dictRealParams = {x[0].lower():x[1] for x in listParam}
+        url = requestString.split(" HTTP/1.")
+        for index, key in enumerate(self._dictParams):
+            if key.lower() in dictRealParams.keys() and self._dictParams[key] == '1':
+                if len(self._dictPayloads.keys()) == 0:
+                    pass
+                elif self._overwriteParam:
+                    payload = random.choice(self._dictPayloads.keys())
+                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                    url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
+                elif not self._overwriteParam:
+                    payload = random.choice(self._dictPayloads.keys())
+                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                    payload = dictRealParams.get(key.lower()) + payload
+                    url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
+            else:
+                pass
+
+        return "{} HTTP/1.{}".format(url[0], url[1])
+
+
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
         try:
             if not self.status_flag:
@@ -311,48 +431,10 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
                 return
 
             requestString = messageInfo.getRequest().tostring()
+            newRequestString = prepareRequest(requestString)
 
-            listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
-            dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
-
-            for index, key in enumerate(self._dictHeaders):
-                if key.lower() in dictRealHeaders.keys() and self._dictHeaders[key] == '1':
-                    if len(self._dictPayloads.keys()) == 0:
-                        pass
-                    elif self._overwriteHeader:
-                        payload = random.choice(self._dictPayloads.keys())
-                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
-                    elif not self._overwriteHeader:
-                        payload = random.choice(self._dictPayloads.keys())
-                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                        payload = dictRealHeaders.get(key.lower()) + payload
-                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
-                else:
-                    pass
-
-            listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
-            dictRealParams = {x[0].lower():x[1] for x in listParam}
-            url = requestString.split(" HTTP/1.")
-            for index, key in enumerate(self._dictParams):
-                if key.lower() in dictRealParams.keys() and self._dictParams[key] == '1':
-                    if len(self._dictPayloads.keys()) == 0:
-                        pass
-                    elif self._overwriteParam:
-                        payload = random.choice(self._dictPayloads.keys())
-                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
-                    elif not self._overwriteParam:
-                        payload = random.choice(self._dictPayloads.keys())
-                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                        payload = dictRealParams.get(key.lower()) + payload
-                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
-                else:
-                    pass
-            requestString = "{} HTTP/1.{}".format(url[0], url[1])
-
-            self.appendToResults(requestString.encode())
-            messageInfo.setRequest(requestString.encode())
+            self.appendToResults(newRequestString.encode())
+            messageInfo.setRequest(newRequestString.encode())
         except Exception as msg:
             self.appendToResults(msg)
 
@@ -370,16 +452,33 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
 
     def addFromFile(self, file, table):
+       if os.path.exists(file):
+            with open(file, 'r') as f:
+                for row in f.readlines():
+                    if row != '':
+                        table.insertRow(table.getRowCount(), [str(row), '1'])
+
+
+    def addFromFileAsync(self, file, table):        
         """Appends results to the resultsTextArea in a thread safe mannor. Results will be
            appended in the order that this function is called.
         """
         def addFromFile_run(file, table):
-            if os.path.exists(file):
+           if os.path.exists(file):
                 with open(file, 'r') as f:
                     for row in f.readlines():
-                        table.insertRow(table.getRowCount(), [str(row), '1'])
+                        if row != '':
+                            table.insertRow(table.getRowCount(), [str(row), '1'])
 
         swing.SwingUtilities.invokeLater(PyRunnable(addFromFile_run, file, table))
+
+
+    # def saveToFile(self, file, data):
+    #     with open(file, 'w') as f:
+    #         for i, k in enumerate(data):
+    #             f.write("{}\n".format(k))
+    #         f.seek(-1, os.SEEK_END)
+    #         f.truncate()
 
 
     def saveToFile(self, file, data):
@@ -387,9 +486,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
            appended in the order that this function is called.
         """
         def saveToFile_run(file, data):
+
             with open(file, 'w') as f:
                 for i, k in enumerate(data):
+                    # print("www{}qqq".format(k))
                     f.write("{}\n".format(k))
+                    # print("{}\n".format(k))
+                # f.writelines([x[0] for x in data])
                 f.seek(-1, os.SEEK_END)
                 f.truncate()
 
