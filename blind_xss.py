@@ -3,9 +3,9 @@ from burp import ITab
 from burp import IHttpListener
 from burp import IInterceptedProxyMessage
 from burp import IMessageEditorController
-from burp import IContextMenuInvocation
+from burp import IContextMenuFactory, IContextMenuInvocation
 from javax.swing import (JLabel, JTextField, JOptionPane,
-    JTabbedPane, JPanel, JButton, JMenuItem, JTable, JScrollPane,
+    JTabbedPane, JPanel, JButton, JMenu, JMenuItem, JTable, JScrollPane,
     JCheckBox, BorderFactory, Box, JFileChooser)
 from javax.swing.border import EmptyBorder
 from java.awt import (GridBagLayout, Dimension, GridBagConstraints,
@@ -21,7 +21,7 @@ import re
 import threading
 import random
 from java.lang import Runnable
-from java.util import ArrayList
+from java.util import ArrayList, Arrays
 import config
 
 
@@ -41,12 +41,12 @@ class MyTableModelListener(TableModelListener):
                     new_line = new_line[:-1]
                 self.burp._dictPayloads[data[-1][0]] = new_line
             if e.getType() == 0:
-                self.burp._dictPayloads = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelPayloads.getDataVector()}
+                self.burp._dictPayloads = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
                 try:
                     self.burp._dictPayloads.pop('')
                 except Exception:
                     pass
-                self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
+                self.burp.saveToFileAsync(config.Payloads, self.burp._dictPayloads)
             if e.getType() == -1:
                 return
 
@@ -54,7 +54,7 @@ class MyTableModelListener(TableModelListener):
                 self.burp._dictPayloads.pop('')
             except Exception:
                 pass
-            # self.burp.saveToFile(config.Payloads, self.burp._dictPayloads)
+            # self.burp.saveToFileAsync(config.Payloads, self.burp._dictPayloads)
         elif self._tableNum == 2:
             if e.getType() == 1:
                 data = self.burp._tableModelHeaders.getDataVector()
@@ -65,7 +65,7 @@ class MyTableModelListener(TableModelListener):
                     self.burp._dictHeaders.pop('')
                 except Exception:
                     pass
-                self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
+                self.burp.saveToFileAsync(config.Headers, self.burp._dictHeaders)
             if e.getType() == -1:
                 return
 
@@ -73,7 +73,7 @@ class MyTableModelListener(TableModelListener):
                 self.burp._dictHeaders.pop('')
             except Exception:
                 pass
-            # self.burp.saveToFile(config.Headers, self.burp._dictHeaders)
+            # self.burp.saveToFileAsync(config.Headers, self.burp._dictHeaders)
         elif self._tableNum == 3:
             if e.getType() == 1:
                 data = self.burp._tableModelParams.getDataVector()
@@ -84,7 +84,7 @@ class MyTableModelListener(TableModelListener):
                     self.burp._dictParams.pop('')
                 except Exception:
                     pass
-                self.burp.saveToFile(config.Parameters, self.burp._dictParams)
+                self.burp.saveToFileAsync(config.Parameters, self.burp._dictParams)
             if e.getType() == -1:
                 return
 
@@ -92,7 +92,7 @@ class MyTableModelListener(TableModelListener):
                 self.burp._dictParams.pop('')
             except Exception:
                 pass
-            # self.burp.saveToFile(config.Parameters, self.burp._dictParams)
+            # self.burp.saveToFileAsync(config.Parameters, self.burp._dictParams)
 
 
 class PyRunnable(Runnable):
@@ -113,8 +113,8 @@ class PyRunnable(Runnable):
         self.target(*self.args, **self.kwargs)
 
 
-class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController, AbstractTableModel, IContextMenuInvocation, IScannerCheck):
-    name = "Blind XSS_"
+class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController, AbstractTableModel, IContextMenuFactory, IScannerCheck):
+    name = "Femida XSS"
     _jTabbedPane = JTabbedPane()
     _jPanel = JPanel()
     _jAboutPanel = JPanel()
@@ -143,10 +143,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
         except Exception as msg:
             print(msg)
-
-        # with open('/Users/pavelrukavishnikov/Documents/ctfDir/blind-xss/base.txt', 'a+') as f:
-        #     f.write("a {}\n".format(str(baseRequestResponse.getRequest().tostring())))
-        #     f.write("b {}\n".format(newRequestString))
 
         return []
 
@@ -263,6 +259,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self.starterPack()
 
         self._callbacks.registerHttpListener(self)
+        self._callbacks.registerContextMenuFactory(self)
 
         return
 
@@ -284,14 +281,63 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._jPanelConstraints.insets = insets
         self._jPanel.add(_component, self._jPanelConstraints)
 
+    def createMenuItems(self, contextMenuInvocation):
+        context = contextMenuInvocation.getInvocationContext()
+        filterMenu = JMenu("Femida XSS")
+        self._contextMenuData = contextMenuInvocation
+        if (context == 0 or context == 1 or
+            context == 2 or context == 3):
+            filterMenu.add(JMenuItem("Add to Headers", actionPerformed = self.addToHeadersItem))
+            filterMenu.add(JMenuItem("Add to Parameters", actionPerformed = self.addToParametersItem))
+
+        return Arrays.asList(filterMenu)
+
+    def addToHeadersItem(self, event):
+        start, end = self._contextMenuData.getSelectionBounds()
+        print(str(start), str(end))
+        message = self._contextMenuData.getSelectedMessages()[0]
+        ctx = self._contextMenuData.getInvocationContext()
+
+        if ctx == 0 or ctx == 2:
+            message = message.getRequest()
+        elif ctx == 1 or ctx == 3:
+            message = message.getResponse()
+        else:
+            print(ctx)
+            return
+        try:
+            selected_text = self._helpers.bytesToString(message)[start:end]
+            self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), [str(selected_text), '1'])
+        except Exception:
+            pass
+
+    def addToParametersItem(self, event):
+        start, end = self._contextMenuData.getSelectionBounds()
+        print(str(start), str(end))
+        message = self._contextMenuData.getSelectedMessages()[0]
+        ctx = self._contextMenuData.getInvocationContext()
+
+        if ctx == 0 or ctx == 2:
+            message = message.getRequest()
+        elif ctx == 1 or ctx == 3:
+            message = message.getResponse()
+        else:
+            print(ctx)
+            return
+        try:
+            selected_text = self._helpers.bytesToString(message)[start:end]
+            self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), [str(selected_text), '1'])
+        except Exception:
+            pass
+
 
     def starterPack(self):
         self.addFromFileAsync(config.Payloads, self._tableModelPayloads)
         self.addFromFileAsync(config.Headers, self._tableModelHeaders)
         self.addFromFileAsync(config.Parameters, self._tableModelParams)
-        self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, 1))
-        self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, 2))
-        self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, 3))
+        # self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, 1))
+        # self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, 2))
+        # self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, 3))
 
 
     def addToPayload(self, button):
@@ -354,6 +400,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self.submitSearchButton.setBackground(Color.GRAY)
             self.appendToResults("Proxy start...")
             self.appendToResults(str(self._dictPayloads))
+            self.appendToResults(str(self._dictHeaders))
+            self.appendToResults(str(self._dictParams))
 
         elif self.status_flag:
             self.status_flag = False
@@ -451,48 +499,23 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         swing.SwingUtilities.invokeLater(PyRunnable(appendToResults_run, s))
 
 
-    def addFromFile(self, file, table):
-       if os.path.exists(file):
-            with open(file, 'r') as f:
-                for row in f.readlines():
-                    if row != '':
-                        table.insertRow(table.getRowCount(), [str(row), '1'])
-
-
     def addFromFileAsync(self, file, table):        
-        """Appends results to the resultsTextArea in a thread safe mannor. Results will be
-           appended in the order that this function is called.
-        """
         def addFromFile_run(file, table):
            if os.path.exists(file):
                 with open(file, 'r') as f:
                     for row in f.readlines():
                         if row != '':
-                            table.insertRow(table.getRowCount(), [str(row), '1'])
+                            temp = row[:-1] if row[-1] == '\n' else row
+                            table.insertRow(table.getRowCount(), [str(temp), '1'])
 
         swing.SwingUtilities.invokeLater(PyRunnable(addFromFile_run, file, table))
 
 
-    # def saveToFile(self, file, data):
-    #     with open(file, 'w') as f:
-    #         for i, k in enumerate(data):
-    #             f.write("{}\n".format(k))
-    #         f.seek(-1, os.SEEK_END)
-    #         f.truncate()
-
-
-    def saveToFile(self, file, data):
-        """Appends results to the resultsTextArea in a thread safe mannor. Results will be
-           appended in the order that this function is called.
-        """
+    def saveToFileAsync(self, file, data):
         def saveToFile_run(file, data):
-
             with open(file, 'w') as f:
                 for i, k in enumerate(data):
-                    # print("www{}qqq".format(k))
                     f.write("{}\n".format(k))
-                    # print("{}\n".format(k))
-                # f.writelines([x[0] for x in data])
                 f.seek(-1, os.SEEK_END)
                 f.truncate()
 
