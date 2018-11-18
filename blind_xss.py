@@ -26,73 +26,36 @@ import config
 
 
 class MyTableModelListener(TableModelListener):
-    def __init__(self, table, burp, _tableNum):
+    def __init__(self, table, burp, data_dict, file):
         self.table = table
         self.burp = burp
-        self._tableNum = _tableNum
+        self.data_dict = data_dict
+        self.file = file
 
     def tableChanged(self, e):
         # print(e.getColumn())
-        if self._tableNum == 1:
-            if e.getType() == 1:
-                data = self.burp._tableModelPayloads.getDataVector()
-                new_line = data[-1][1]
-                if new_line[-1] == '\n':
-                    new_line = new_line[:-1]
-                self.burp._dictPayloads[data[-1][0]] = new_line
-            if e.getType() == 0:
-                self.burp._dictPayloads = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
-                try:
-                    self.burp._dictPayloads.pop('')
-                except Exception:
-                    pass
-                self.burp.saveToFileAsync(config.Payloads, self.burp._dictPayloads)
-            if e.getType() == -1:
-                return
-
+        print(e.getType())
+        if e.getType() == 1:
+            data = self.table.getDataVector()
+            new_line = data[-1][1]
+            if new_line[-1] == '\n':
+                new_line = new_line[:-1]
+            self.data_dict[data[-1][0]] = new_line
+            # self.burp.saveToFileAsync(config.Payloads, {data[-1][0] : new_line}, True)
+        if e.getType() == 0:
+            self.data_dict = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
             try:
-                self.burp._dictPayloads.pop('')
+                self.data_dict.pop('')
             except Exception:
                 pass
-            # self.burp.saveToFileAsync(config.Payloads, self.burp._dictPayloads)
-        elif self._tableNum == 2:
-            if e.getType() == 1:
-                data = self.burp._tableModelHeaders.getDataVector()
-                self.burp._dictHeaders[data[-1][0]] = data[-1][1]
-            if e.getType() == 0:
-                self.burp._dictHeaders = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelHeaders.getDataVector()}
-                try:
-                    self.burp._dictHeaders.pop('')
-                except Exception:
-                    pass
-                self.burp.saveToFileAsync(config.Headers, self.burp._dictHeaders)
-            if e.getType() == -1:
-                return
-
-            try:
-                self.burp._dictHeaders.pop('')
-            except Exception:
-                pass
-            # self.burp.saveToFileAsync(config.Headers, self.burp._dictHeaders)
-        elif self._tableNum == 3:
-            if e.getType() == 1:
-                data = self.burp._tableModelParams.getDataVector()
-                self.burp._dictParams[data[-1][0]] = data[-1][1]
-            if e.getType() == 0:
-                self.burp._dictParams = {x[0][:-1] if x[0][-1] == '\n' else x[0] : x[1] for x in self.burp._tableModelParams.getDataVector()}
-                try:
-                    self.burp._dictParams.pop('')
-                except Exception:
-                    pass
-                self.burp.saveToFileAsync(config.Parameters, self.burp._dictParams)
-            if e.getType() == -1:
-                return
-
-            try:
-                self.burp._dictParams.pop('')
-            except Exception:
-                pass
-            # self.burp.saveToFileAsync(config.Parameters, self.burp._dictParams)
+            self.burp.saveToFileAsync(self.file, self.data_dict)
+        if e.getType() == -1:
+            print('-1-1-1-1-1')
+            return
+        try:
+            self.data_dict.pop('')
+        except Exception:
+            pass
 
 
 class PyRunnable(Runnable):
@@ -139,7 +102,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             requestString = str(baseRequestResponse.getRequest().tostring())
             newRequestString = self.prepareRequest(requestString)
 
-            vulnerable, verifyingRequestResponse = self.quickCheck(newRequestString, baseRequestResponse)
+            vulnerable, verifyingRequestResponse = self.quickCheckScan(newRequestString, baseRequestResponse)
 
         except Exception as msg:
             print(msg)
@@ -147,7 +110,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         return []
 
 
-    def quickCheck(self, preparedRequest, requestResponse):
+    def quickCheckScan(self, preparedRequest, requestResponse):
         check = self._callbacks.makeHttpRequest(requestResponse.getHttpService(), preparedRequest)
         vulner = self._helpers.analyzeResponse(check.getResponse()).getStatusCode() == 200
         return vulner, check
@@ -166,7 +129,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self._dictHeaders = {}
         self._dictParams = {}
         self.status_flag = False
-        self.table_flag = 0
+        self.match_row_data = [{}, {}, {}]
 
         self.jfc = JFileChooser("./")
         self.jfc.setDialogTitle("Upload Payloads")
@@ -267,10 +230,22 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     def createAnyTable(self, table_model, table_number, min_size):
         _table = JTable(table_model)
         _table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS)
-        # _table.getModel().addTableModelListener(MyTableModelListener(_table, self, table_number))
         _scrolltable = JScrollPane(_table)
         _scrolltable.setMinimumSize(min_size)
         return _scrolltable
+
+
+    def insertAnyTable(self, table, data):
+        def detectTable(table):
+            table.getColumnName(0)
+
+        new_data = [str(x) for x in data]
+        print('was ', str(table.getRowCount()))
+        table.insertRow(table.getRowCount(), new_data)
+        # self.match_row_data[tableNum]
+        print('become ', str(table.getRowCount()))
+        return table.getRowCount()
+
 
     def createAnyView(self, _component, gridx, gridy, gridwidth, gridheight, insets):
         self._jPanelConstraints.fill = GridBagConstraints.HORIZONTAL
@@ -294,7 +269,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def addToHeadersItem(self, event):
         start, end = self._contextMenuData.getSelectionBounds()
-        print(str(start), str(end))
         message = self._contextMenuData.getSelectedMessages()[0]
         ctx = self._contextMenuData.getInvocationContext()
 
@@ -307,13 +281,12 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             return
         try:
             selected_text = self._helpers.bytesToString(message)[start:end]
-            self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), [str(selected_text), '1'])
+            self.insertAnyTable(self._tableModelHeaders, [str(selected_text), '1'])
         except Exception:
             pass
 
     def addToParametersItem(self, event):
         start, end = self._contextMenuData.getSelectionBounds()
-        print(str(start), str(end))
         message = self._contextMenuData.getSelectedMessages()[0]
         ctx = self._contextMenuData.getInvocationContext()
 
@@ -326,7 +299,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             return
         try:
             selected_text = self._helpers.bytesToString(message)[start:end]
-            self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), [str(selected_text), '1'])
+            self.insertAnyTable(self._tableModelParams, [str(selected_text), '1'])
         except Exception:
             pass
 
@@ -335,19 +308,20 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         self.addFromFileAsync(config.Payloads, self._tableModelPayloads)
         self.addFromFileAsync(config.Headers, self._tableModelHeaders)
         self.addFromFileAsync(config.Parameters, self._tableModelParams)
-        # self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, 1))
-        # self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, 2))
-        # self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, 3))
+        self._tableModelPayloads.addTableModelListener(MyTableModelListener(self._tableModelPayloads, self, self._dictPayloads, config.Payloads))
+        self._tableModelHeaders.addTableModelListener(MyTableModelListener(self._tableModelHeaders, self, self._dictHeaders, config.Headers))
+        self._tableModelParams.addTableModelListener(MyTableModelListener(self._tableModelParams, self, self._dictParams, config.Parameters))
 
 
     def addToPayload(self, button):
-        self._tableModelPayloads.insertRow(self._tableModelPayloads.getRowCount(), ['', '1'])
+        self.insertAnyTable(self._tableModelPayloads, ['', '1'])
 
     def addToHeader(self, button):
-        self._tableModelHeaders.insertRow(self._tableModelHeaders.getRowCount(), ['', '1'])
+        self.insertAnyTable(self._tableModelHeaders, ['', '1'])
 
     def addToParams(self, button):
-        self._tableModelParams.insertRow(self._tableModelParams.getRowCount(), ['', '1'])
+        self.insertAnyTable(self._tableModelParams, ['', '1'])
+
 
     def uploadToPayload(self, button):
         self._returnFileChooser = self.jfc.showDialog(None, "Open")
@@ -358,6 +332,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     def deleteToPayload(self, button):
         try:
             # print(str(dir(self._tableModelPayloads)))
+            # print(str(self._tableModelPayloads.getColumnName(0)))
             # rows = self._payloadTable.getSelectedRows()
             # for i in rows:
             #     self._tableModelPayloads.removeRow(table.getSelectedRow())
@@ -391,7 +366,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
     def fileUpload(self, path, table):
         with open(str(path), "r") as f:
             for line in f:
-                table.insertRow(table.getRowCount(), [str(line), '1'])
+                self.insertAnyTable(table, [str(line), '1'])
 
 
     def active_flag(self, button):
@@ -506,25 +481,26 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
                     for row in f.readlines():
                         if row != '':
                             temp = row[:-1] if row[-1] == '\n' else row
-                            table.insertRow(table.getRowCount(), [str(temp), '1'])
+                            self.insertAnyTable(table, [str(temp), '1'])
 
         swing.SwingUtilities.invokeLater(PyRunnable(addFromFile_run, file, table))
 
-
-    def saveToFileAsync(self, file, data):
-        def saveToFile_run(file, data):
-            with open(file, 'w') as f:
+    def saveToFileAsync(self, file, data, isAppend=False):
+        def saveToFile_run(file, data, isAppend):
+            # isAppend = 'a' if isAppend is True else 'w'
+            isAppend = 'w'
+            print(isAppend)
+            with open(file, isAppend) as f:
                 for i, k in enumerate(data):
                     f.write("{}\n".format(k))
+                    # print("QQQQ{}\nQQQ".format(k))
                 f.seek(-1, os.SEEK_END)
                 f.truncate()
 
-        swing.SwingUtilities.invokeLater(PyRunnable(saveToFile_run, file, data))
-
+        swing.SwingUtilities.invokeLater(PyRunnable(saveToFile_run, file, data, isAppend))
 
     def getTabCaption(self):
         return self.name
-
 
     def getUiComponent(self):
         return self._jPanel
