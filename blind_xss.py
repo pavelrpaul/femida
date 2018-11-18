@@ -37,15 +37,24 @@ class MyTableModelListener(TableModelListener):
         # print(e.getType())
         if e.getType() == 1:
             data = self.table.getDataVector()
-            new_line = data[-1][1]
-            if new_line == '':
+            value = data[-1][1]
+            newData = data[-1][0]
+            if newData == '':
                 return
-            if new_line[-1] == '\n':
-                new_line = new_line[:-1]
-            self.data_dict[data[-1][0]] = new_line
-            # self.burp.saveToFileAsync(config.Payloads, {data[-1][0] : new_line}, True)
+            if newData[-1] == '\n':
+                newData = newData[:-1]
+            self.data_dict[newData] = value
+            # self.burp.saveToFileAsync(config.Payloads, {data[-1][0] : value}, True)
         if e.getType() == 0:
-            self.data_dict = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
+            for x in self.burp._tableModelPayloads.getDataVector():
+                key = x[0]
+                val = x[1]
+                if key == '':
+                    continue
+                if key[-1] == '\n':
+                    key = key[:-1]
+                self.data_dict[key] = val
+            # self.data_dict = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
             try:
                 self.data_dict.pop('')
             except Exception:
