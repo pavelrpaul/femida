@@ -46,7 +46,7 @@ class MyTableModelListener(TableModelListener):
             self.data_dict[newData] = value
             # self.burp.saveToFileAsync(config.Payloads, {data[-1][0] : value}, True)
         if e.getType() == 0:
-            for x in self.burp._tableModelPayloads.getDataVector():
+            for x in self.table.getDataVector():
                 key = x[0]
                 val = x[1]
                 if key == '':
@@ -54,7 +54,6 @@ class MyTableModelListener(TableModelListener):
                 if key[-1] == '\n':
                     key = key[:-1]
                 self.data_dict[key] = val
-            # self.data_dict = {x[0][:-1] if x[0][-1] == '\n' else x[0] for x in self.burp._tableModelPayloads.getDataVector()}
             try:
                 self.data_dict.pop('')
             except Exception:
@@ -342,8 +341,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
     def deleteToPayload(self, button):
         try:
-            # print(str(dir(self._tableModelPayloads)))
-            # print(str(self._tableModelPayloads.getColumnName(0)))
+            print(str(dir(self._tableModelPayloads)))
+            print(str(self._tableModelPayloads.getColumnName(0)))
             # rows = self._payloadTable.getSelectedRows()
             # for i in rows:
             #     self._tableModelPayloads.removeRow(table.getSelectedRow())
