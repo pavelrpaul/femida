@@ -34,10 +34,12 @@ class MyTableModelListener(TableModelListener):
 
     def tableChanged(self, e):
         # print(e.getColumn())
-        print(e.getType())
+        # print(e.getType())
         if e.getType() == 1:
             data = self.table.getDataVector()
             new_line = data[-1][1]
+            if new_line == '':
+                return
             if new_line[-1] == '\n':
                 new_line = new_line[:-1]
             self.data_dict[data[-1][0]] = new_line
@@ -50,7 +52,7 @@ class MyTableModelListener(TableModelListener):
                 pass
             self.burp.saveToFileAsync(self.file, self.data_dict)
         if e.getType() == -1:
-            print('-1-1-1-1-1')
+            # print('-1-1-1-1-1')
             return
         try:
             self.data_dict.pop('')
@@ -240,10 +242,10 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             table.getColumnName(0)
 
         new_data = [str(x) for x in data]
-        print('was ', str(table.getRowCount()))
+        # print('was ', str(table.getRowCount()))
         table.insertRow(table.getRowCount(), new_data)
         # self.match_row_data[tableNum]
-        print('become ', str(table.getRowCount()))
+        # print('become ', str(table.getRowCount()))
         return table.getRowCount()
 
 
@@ -489,7 +491,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
         def saveToFile_run(file, data, isAppend):
             # isAppend = 'a' if isAppend is True else 'w'
             isAppend = 'w'
-            print(isAppend)
+            # print(isAppend)
             with open(file, isAppend) as f:
                 for i, k in enumerate(data):
                     f.write("{}\n".format(k))
