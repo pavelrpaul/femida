@@ -346,28 +346,31 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             # rows = self._payloadTable.getSelectedRows()
             # for i in rows:
             #     self._tableModelPayloads.removeRow(table.getSelectedRow())
-
-            self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
             data = self._tableModelPayloads.getDataVector()
             self._dictPayloads.pop(data[-1][0])
+            self._tableModelPayloads.removeRow(self._tableModelPayloads.getRowCount()-1)
         except Exception as msg:
             print(msg)
             pass
 
     def deleteToHeader(self, button):
-        self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
-        data = self._tableModelHeaders.getDataVector()
         try:
+            data = self._tableModelHeaders.getDataVector()
+            print(data[-1][0])
             self._dictHeaders.pop(data[-1][0])
-        except Exception:
+            self._tableModelHeaders.removeRow(self._tableModelHeaders.getRowCount()-1)
+        except Exception as msg:
+            print(msg)
             pass
 
     def deleteToParams(self, button):
-        self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
-        data = self._tableModelParams.getDataVector()
         try:
+            data = self._tableModelParams.getDataVector()
+            print(data[-1][0])
             self._dictParams.pop(data[-1][0])
-        except Exception:
+            self._tableModelParams.removeRow(self._tableModelParams.getRowCount()-1)
+        except Exception as msg:
+            print(msg)
             pass
 
     def clearOutput(self, button):
@@ -414,43 +417,46 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
 
 
     def prepareRequest(self, requestString):
-        listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
-        dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
+        try:
+            listHeader = re.findall('([\w-]+):\s?(.*)', requestString)
+            dictRealHeaders = {x[0].lower():x[1] for x in listHeader}
 
-        for index, key in enumerate(self._dictHeaders):
-            if key.lower() in dictRealHeaders.keys() and self._dictHeaders[key] == '1':
-                if len(self._dictPayloads.keys()) == 0:
+            for index, key in enumerate(self._dictHeaders):
+                if key.lower() in dictRealHeaders.keys() and self._dictHeaders[key] == '1':
+                    if len(self._dictPayloads.keys()) == 0:
+                        pass
+                    elif self._overwriteHeader:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
+                    elif not self._overwriteHeader:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        payload = dictRealHeaders.get(key.lower()) + payload
+                        requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
+                else:
                     pass
-                elif self._overwriteHeader:
-                    payload = random.choice(self._dictPayloads.keys())
-                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
-                elif not self._overwriteHeader:
-                    payload = random.choice(self._dictPayloads.keys())
-                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                    payload = dictRealHeaders.get(key.lower()) + payload
-                    requestString = requestString.replace(dictRealHeaders.get(key.lower()), payload, 1)
-            else:
-                pass
 
-        listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
-        dictRealParams = {x[0].lower():x[1] for x in listParam}
-        url = requestString.split(" HTTP/1.")
-        for index, key in enumerate(self._dictParams):
-            if key.lower() in dictRealParams.keys() and self._dictParams[key] == '1':
-                if len(self._dictPayloads.keys()) == 0:
+            listParam = re.findall('[\?|\&]([^=]+)\=([^& ])+', requestString)
+            dictRealParams = {x[0].lower():x[1] for x in listParam}
+            url = requestString.split(" HTTP/1.")
+            for index, key in enumerate(self._dictParams):
+                if key.lower() in dictRealParams.keys() and self._dictParams[key] == '1':
+                    if len(self._dictPayloads.keys()) == 0:
+                        pass
+                    elif self._overwriteParam:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
+                    elif not self._overwriteParam:
+                        payload = random.choice(self._dictPayloads.keys())
+                        payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
+                        payload = dictRealParams.get(key.lower()) + payload
+                        url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
+                else:
                     pass
-                elif self._overwriteParam:
-                    payload = random.choice(self._dictPayloads.keys())
-                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                    url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
-                elif not self._overwriteParam:
-                    payload = random.choice(self._dictPayloads.keys())
-                    payload = payload.replace(r"${URL}$", self._jTextFieldURL.text, 1)
-                    payload = dictRealParams.get(key.lower()) + payload
-                    url[0] = url[0].replace(dictRealParams.get(key.lower()), payload, 1)
-            else:
-                pass
+        except Exception as msg:
+            print('AAAAAAA ',str(msg))
 
         return "{} HTTP/1.{}".format(url[0], url[1])
 
@@ -462,14 +468,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             # only process requests
             if not messageIsRequest:
                 return
-
             requestString = messageInfo.getRequest().tostring()
-            newRequestString = prepareRequest(requestString)
+            newRequestString = self.prepareRequest(requestString)
 
             self.appendToResults(newRequestString.encode())
             messageInfo.setRequest(newRequestString.encode())
         except Exception as msg:
-            self.appendToResults(msg)
+            self.appendToResults(str(msg))
 
         
     # Fnction to provide output to GUI
@@ -481,7 +486,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IMessageEditorController,
             self._resultsTextArea.append(s)
             self._resultsTextArea.append('\n')
 
-        swing.SwingUtilities.invokeLater(PyRunnable(appendToResults_run, s))
+        swing.SwingUtilities.invokeLater(PyRunnable(appendToResults_run, str(s)))
 
 
     def addFromFileAsync(self, file, table):        
